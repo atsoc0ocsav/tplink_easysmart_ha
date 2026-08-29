@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your TP-Link EasySmart switch",
+        "description": "Works with TL-SG105E, TL-SG116E and similar EasySmart models that have a web UI on port 80.",
+        "data": {
+          "host": "Host or IP address",
+          "port": "HTTP port",
+          "username": "Username",
+          "password": "Password",
+          "scan_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll, 10 to 300 seconds. These switches run a small web server that drops requests when polled hard, so 30 seconds is a sensible default. Changeable later without re-adding the switch."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter the password",
+        "description": "The switch at {host} is rejecting the stored password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the switch. Check the host, port and that its web UI is responding.",
+      "invalid_auth": "The switch rejected these credentials. Note that if you have its web UI open in a browser, this check can be unreliable — close it and try again.",
+      "unknown": "Unexpected error — check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This switch is already configured.",
+      "reauth_successful": "Re-authentication succeeded."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TP-Link EasySmart options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)",
+          "assumed_tx_frame_bytes": "Assumed average TX frame size (bytes)",
+          "assumed_rx_frame_bytes": "Assumed average RX frame size (bytes)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll, 10 to 300 seconds. Changes apply immediately — no restart needed.",
+          "assumed_tx_frame_bytes": "Leave at 0 to disable. These switches count frames, not bytes, so a bit rate can only be estimated by assuming an average frame size. Measure it on the device at the other end of the link if it reports byte counters: bytes divided by packets. The two directions usually differ a lot, which is why they are set separately, and the value drifts with the traffic mix — treat the result as indicative and do not alert on it.",
+          "assumed_rx_frame_bytes": "Same as above, for the receive direction. Set it independently."
+        }
+      }
+    }
+  }
+}
