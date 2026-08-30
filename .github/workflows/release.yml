@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST=$(python3 -c "import json;print(json.load(open('custom_components/tplink_easysmart/manifest.json'))['version'])")
+          echo "tag=$TAG manifest=$MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag $TAG does not match manifest version $MANIFEST"
+            exit 1
+          fi
+
+      - name: Zip the integration
+        run: |
+          cd custom_components
+          zip -r ../tplink_easysmart.zip tplink_easysmart/
+          cd ..
+          unzip -l tplink_easysmart.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tplink_easysmart.zip
+          generate_release_notes: true
