@@ -116,6 +116,10 @@ Two consequences. First, **keep these switches on a management VLAN**: anyone wh
 
 **The web UI is fragile.** Requests arriving back to back get dropped with no reply, so reads are spaced and retried, and the integration authenticates once rather than per poll. Some models are known to hang their web UI after long uptime; putting management on VLAN 1 is the usual workaround.
 
+**Logins are throttled, and the throttle looks like a wrong password.** After enough login attempts a switch starts dropping the login conversation entirely — `GET /` still returns the login page, but `POST /logon.cgi` followed by a protected page fetch gets no reply. Valid credentials are refused in that state exactly as invalid ones are, so a failed login is *not* evidence of a wrong password.
+
+Two consequences for this integration. It authenticates once and reuses the session rather than logging in per poll, which keeps it well clear of the throttle. And it does not ask you to re-enter credentials on the first refusal: `ConfigEntryAuthFailed` is only raised after several consecutive failures, because a single one is more likely to be another session or the throttle than a bad password.
+
 **Two data-shape traps**, both covered by tests: the `state` / `link_status` / `pkts` arrays carry **more entries than `max_port_num`** (two extra on both confirmed models), so iterating the arrays invents ports that do not exist; and `descriStr` is the **user-set device name**, not the model — the model is in `hardwareStr`.
 
 ---

@@ -131,6 +131,14 @@ class TPLinkEasySmartClient:
             "logon": "Login",
             "username": self._username,
             "password": self._password,
+            # The login form carries a `cpassword` field (used by the forced
+            # password-change flow) inside a hidden row. Hidden inputs are still
+            # submitted, so a browser sends it empty on a normal login — and the
+            # `logon` submit button's value is sent too, since the page submits
+            # natively rather than through form.submit(). Matching the browser
+            # exactly costs nothing and removes a whole class of "works in the
+            # browser, refused from code" difference.
+            "cpassword": "",
         }
         try:
             async with self._session.post(

@@ -130,6 +130,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class TPLinkEasySmartCoordinator(DataUpdateCoordinator[SwitchData]):
     """Polls one switch at the configured interval."""
 
+    # A single refused login is not proof of a wrong password. These switches
+    # also refuse valid credentials transiently — when another session is open
+    # elsewhere, and when they throttle after repeated attempts. Prompting for
+    # reauthentication on the first failure would nag the user for a problem
+    # that clears itself, so require several consecutive failures first.
+    _AUTH_FAILURES_BEFORE_REAUTH = 3
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -138,6 +145,7 @@ class TPLinkEasySmartCoordinator(DataUpdateCoordinator[SwitchData]):
     ) -> None:
         self.client = client
         self.entry = entry
+        self._auth_failures = 0
         super().__init__(
             hass,
             _LOGGER,
@@ -149,10 +157,24 @@ class TPLinkEasySmartCoordinator(DataUpdateCoordinator[SwitchData]):
         try:
             data = await self.client.async_update()
         except InvalidAuth as exc:
-            # Re-authentication will not help; prompt the user instead.
+            self._auth_failures += 1
+            if self._auth_failures < self._AUTH_FAILURES_BEFORE_REAUTH:
+                _LOGGER.debug(
+                    "[%s] Login refused (%d/%d) — could be another session or "
+                    "rate limiting, not necessarily a wrong password: %s",
+                    self.client.host, self._auth_failures,
+                    self._AUTH_FAILURES_BEFORE_REAUTH, exc,
+                )
+                raise UpdateFailed(str(exc)) from exc
+            _LOGGER.warning(
+                "[%s] Login refused %d times in a row; asking for credentials",
+                self.client.host, self._auth_failures,
+            )
             raise ConfigEntryAuthFailed(str(exc)) from exc
         except CannotConnect as exc:
             raise UpdateFailed(str(exc)) from exc
+
+        self._auth_failures = 0
 
         # Read per poll rather than cached, so an options change applies to the
         # next update without a reload.
