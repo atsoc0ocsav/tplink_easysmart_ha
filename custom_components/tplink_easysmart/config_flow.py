@@ -18,6 +18,7 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_ASSUMED_RX_FRAME_BYTES,
+    CONF_DEVICE_NAME,
     CONF_ASSUMED_TX_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
     DEFAULT_ASSUMED_FRAME_BYTES,
@@ -68,6 +69,9 @@ STEP_SCHEMA = vol.Schema({
     vol.Optional(
         CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
     ): _interval_selector(),
+    # Left blank, the switch's own reported name is used. Set it when you have
+    # more than one of these switches: they commonly all report "SW01".
+    vol.Optional(CONF_DEVICE_NAME, default=""): str,
 })
 
 
@@ -120,6 +124,9 @@ class TPLinkEasySmartConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     title=title,
                     data={k: user_input[k] for k in CONNECTION_KEYS if k in user_input},
                     options={
+                        CONF_DEVICE_NAME: (
+                            user_input.get(CONF_DEVICE_NAME) or ""
+                        ).strip(),
                         CONF_SCAN_INTERVAL: int(
                             user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                         ),
@@ -179,6 +186,9 @@ class TPLinkEasySmartOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(
                 title="",
                 data={
+                    CONF_DEVICE_NAME: (
+                        user_input.get(CONF_DEVICE_NAME) or ""
+                    ).strip(),
                     CONF_SCAN_INTERVAL: int(
                         user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                     ),
@@ -199,6 +209,10 @@ class TPLinkEasySmartOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
+                vol.Optional(
+                    CONF_DEVICE_NAME,
+                    default=options.get(CONF_DEVICE_NAME, ""),
+                ): str,
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),

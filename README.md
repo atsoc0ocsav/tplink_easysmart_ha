@@ -97,8 +97,15 @@ Copy `custom_components/tplink_easysmart/` into `<config>/custom_components/` an
 | Username | `admin` | |
 | Password | — | |
 | Polling interval | `30` s | 10–300 s, changeable later |
+| Device name | *(switch's own name)* | **Set this if you have more than one switch** — see below |
 
 Add one entry per switch. The entry's unique id is the switch's MAC, so its IP can change without breaking the entities.
+
+### Set a device name when you have more than one switch
+
+These switches report their own name in `descriStr`, and it is not reliably unique — both switches this was built against report **`SW01`**. Left to that, every port child device on both is called `Port 1`, `Port 2` … so their entity ids collide and Home Assistant appends `_2` to whichever config entry was set up second. That leaves ids like `sensor.port_4_speed` and `sensor.port_4_speed_2`, which say nothing about which switch they belong to, and whose suffix is not stable across a rebuild.
+
+Setting **Device name** per entry (for example `SW01-Queluz` and `SW01-Massama`) makes the ids `sensor.sw01_queluz_port_4_speed` and `sensor.sw01_massama_port_4_speed`. Changing it later reloads the integration, but **entities created earlier keep their existing ids** — Home Assistant never renames an entity behind your back. Rename them yourself if you want them to match; history survives a rename.
 
 **Keep the interval at 30 s unless you have a reason.** These switches run a tiny embedded HTTP server that drops connections under load; 10 s is the floor for that reason, and polling harder will not make the counters more accurate.
 

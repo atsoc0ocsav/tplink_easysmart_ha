@@ -9,10 +9,12 @@
           "port": "HTTP port",
           "username": "Username",
           "password": "Password",
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "device_name": "Device name (optional)"
         },
         "data_description": {
-          "scan_interval": "How often to poll, 10 to 300 seconds. These switches run a small web server that drops requests when polled hard, so 30 seconds is a sensible default. Changeable later without re-adding the switch."
+          "scan_interval": "How often to poll, 10 to 300 seconds. These switches run a small web server that drops requests when polled hard, so 30 seconds is a sensible default. Changeable later without re-adding the switch.",
+          "device_name": "Leave blank to use the name the switch reports. Set it when you have more than one of these switches: they commonly all report the same name (both of the switches this was built against report “SW01”), which makes their port entities collide and leaves Home Assistant appending “_2” to the second one. This name becomes the stem of every entity id, so pick something short and distinct such as SW01-Queluz."
         }
       },
       "reauth_confirm": {
@@ -40,12 +42,14 @@
         "data": {
           "scan_interval": "Polling interval (seconds)",
           "assumed_tx_frame_bytes": "Assumed average TX frame size (bytes)",
-          "assumed_rx_frame_bytes": "Assumed average RX frame size (bytes)"
+          "assumed_rx_frame_bytes": "Assumed average RX frame size (bytes)",
+          "device_name": "Device name"
         },
         "data_description": {
           "scan_interval": "How often to poll, 10 to 300 seconds. Changes apply immediately — no restart needed.",
           "assumed_tx_frame_bytes": "Leave at 0 to disable. These switches count frames, not bytes, so a bit rate can only be estimated by assuming an average frame size. Measure it on the device at the other end of the link if it reports byte counters: bytes divided by packets. The two directions usually differ a lot, which is why they are set separately, and the value drifts with the traffic mix — treat the result as indicative and do not alert on it.",
-          "assumed_rx_frame_bytes": "Same as above, for the receive direction. Set it independently."
+          "assumed_rx_frame_bytes": "Same as above, for the receive direction. Set it independently.",
+          "device_name": "Leave blank to use the name the switch reports. Set it when you have more than one of these switches: they commonly all report the same name (both of the switches this was built against report “SW01”), which makes their port entities collide and leaves Home Assistant appending “_2” to the second one. This name becomes the stem of every entity id, so pick something short and distinct such as SW01-Queluz. Changing this reloads the integration; entities created earlier keep their existing ids and must be renamed manually if you want them to match."
         }
       }
     }

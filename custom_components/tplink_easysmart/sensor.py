@@ -35,6 +35,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import TPLinkEasySmartCoordinator
 from .const import (
+    CONF_DEVICE_NAME,
     DOMAIN,
     MANUFACTURER,
     PORT_STATUS_UP,
@@ -45,14 +46,31 @@ from .models import PortData, SwitchData
 _LOGGER = logging.getLogger(__name__)
 
 
+def device_base_name(coordinator: TPLinkEasySmartCoordinator) -> str:
+    """Name this switch's devices are built from, and so its entity ids.
+
+    Precedence: the user's configured name, then the name the switch reports,
+    then the host. The option exists because the reported name is not reliably
+    unique — two of these switches at different sites both reported ``SW01``,
+    which made both sets of port devices ``Port 1`` … and left Home Assistant
+    appending ``_2`` to the second switch's entity ids.
+    """
+    configured = (coordinator.entry.options.get(CONF_DEVICE_NAME) or "").strip()
+    if configured:
+        return configured
+    data = coordinator.data
+    if data and data.name:
+        return data.name
+    return coordinator.client.host
+
+
 def switch_device_info(coordinator: TPLinkEasySmartCoordinator) -> DeviceInfo:
     """DeviceInfo for the switch itself."""
     d = coordinator.data
     identifier = (d.mac if d and d.mac else coordinator.client.host).lower()
     return DeviceInfo(
         identifiers={(DOMAIN, identifier)},
-        name=(d.name or f"Switch {coordinator.client.host}") if d else
-             f"Switch {coordinator.client.host}",
+        name=device_base_name(coordinator),
         manufacturer=MANUFACTURER,
         model=(d.model or None) if d else None,
         sw_version=(d.firmware or None) if d else None,
@@ -64,12 +82,18 @@ def switch_device_info(coordinator: TPLinkEasySmartCoordinator) -> DeviceInfo:
 def port_device_info(
     coordinator: TPLinkEasySmartCoordinator, port_num: str
 ) -> DeviceInfo:
-    """DeviceInfo for one port, hung off the switch."""
+    """DeviceInfo for one port, hung off the switch.
+
+    The switch name is carried into the port name so entity ids identify which
+    switch a port belongs to, rather than relying on Home Assistant's ``_2``
+    disambiguation — which is unstable, since it depends on the order the config
+    entries happened to be set up in.
+    """
     d = coordinator.data
     parent = (d.mac if d and d.mac else coordinator.client.host).lower()
     return DeviceInfo(
         identifiers={(DOMAIN, f"{parent}_port{port_num}")},
-        name=f"Port {port_num}",
+        name=f"{device_base_name(coordinator)} Port {port_num}",
         manufacturer=MANUFACTURER,
         via_device=(DOMAIN, parent),
     )

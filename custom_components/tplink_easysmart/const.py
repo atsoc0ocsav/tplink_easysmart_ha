@@ -15,6 +15,15 @@ MAX_SCAN_INTERVAL = 300
 
 CONF_SCAN_INTERVAL = "scan_interval"
 
+# Name used for this switch's devices, and therefore the stem of every entity
+# id. Defaults to the name the switch reports in descriStr. It needs to be
+# settable because that name is not unique in practice: two EasySmart switches
+# at different sites both reported "SW01", so their port child devices both
+# came out as "Port 1" and Home Assistant disambiguated the second set with a
+# "_2" suffix — leaving entity ids that say nothing about which switch they
+# belong to, and whose suffix depends on which config entry was set up first.
+CONF_DEVICE_NAME = "device_name"
+
 # Optional estimated-throughput feature. These switches count frames only, so a
 # bit rate can be produced solely by assuming an average frame size. 0 disables
 # it, which is the default: no assumption is made unless the user makes one.

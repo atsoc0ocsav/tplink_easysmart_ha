@@ -24,6 +24,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     CONF_ASSUMED_RX_FRAME_BYTES,
+    CONF_DEVICE_NAME,
     CONF_ASSUMED_TX_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
     DEFAULT_ASSUMED_FRAME_BYTES,
@@ -110,6 +111,15 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
         await hass.config_entries.async_reload(entry.entry_id)
         return
 
+    # Device names are read when entities are created, so a change needs a
+    # reload to take effect.
+    if entry.options.get(CONF_DEVICE_NAME, "") != coordinator.device_name_at_setup:
+        _LOGGER.debug(
+            "[%s] Device name changed; reloading entry", entry.data[CONF_HOST]
+        )
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
+
     seconds = resolve_scan_interval(entry)
     if coordinator.update_interval != timedelta(seconds=seconds):
         _LOGGER.debug(
@@ -146,6 +156,8 @@ class TPLinkEasySmartCoordinator(DataUpdateCoordinator[SwitchData]):
         self.client = client
         self.entry = entry
         self._auth_failures = 0
+        # Snapshot so an options update can tell whether the name changed.
+        self.device_name_at_setup = entry.options.get(CONF_DEVICE_NAME, "")
         super().__init__(
             hass,
             _LOGGER,
