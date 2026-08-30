@@ -127,23 +127,33 @@ class TPLinkEasySmartClient:
             self._session.cookie_jar.clear()
         self._cookies.clear()
 
+        # Field order matters, or at least may: naive embedded CGI parsers scan
+        # the body sequentially. Captured from Chrome against a TL-SG116E, the
+        # browser sends exactly:
+        #     username=…&password=…&cpassword=&logon=Login
+        # `cpassword` belongs to the forced password-change flow and sits in a
+        # hidden row, but hidden inputs are still submitted, so a browser sends
+        # it empty on a normal login. `logon` is a real submit button and the
+        # page submits natively, so its value is sent too. Python dicts preserve
+        # insertion order and urlencode follows it, so this reproduces the
+        # browser's body byte for byte.
         payload = {
-            "logon": "Login",
             "username": self._username,
             "password": self._password,
-            # The login form carries a `cpassword` field (used by the forced
-            # password-change flow) inside a hidden row. Hidden inputs are still
-            # submitted, so a browser sends it empty on a normal login — and the
-            # `logon` submit button's value is sent too, since the page submits
-            # natively rather than through form.submit(). Matching the browser
-            # exactly costs nothing and removes a whole class of "works in the
-            # browser, refused from code" difference.
             "cpassword": "",
+            "logon": "Login",
         }
         try:
             async with self._session.post(
                 f"{self._base_url}{CGI_LOGIN}",
                 data=payload,
+                # Referer only. This HTTP server has a small header buffer and
+                # drops the connection outright when sent a browser-sized header
+                # block: adding Origin, Accept, Accept-Language, Cache-Control,
+                # Upgrade-Insecure-Requests and an explicit User-Agent produced
+                # ServerDisconnectedError on every attempt, while a minimal
+                # request to the same endpoint returned HTTP 200. Do not "fix"
+                # this by making the request look more like a browser.
                 headers={"Referer": f"{self._base_url}/"},
                 timeout=_TIMEOUT,
             ) as resp:
