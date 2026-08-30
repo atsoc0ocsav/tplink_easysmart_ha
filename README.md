@@ -112,7 +112,9 @@ These are real behaviours of the hardware, found while building this.
 
 Two consequences. First, **keep these switches on a management VLAN**: anyone who can reach one can ride an open admin session. Second, the integration cannot promise to catch a wrong password if you have the web UI open in a browser at the same time — the config flow will say so.
 
-**`logon.cgi` always returns the login page.** Success and failure look identical in its response. Authentication is therefore verified by fetching a protected page and checking for real content, which is the only reliable signal.
+**`logon.cgi` always returns the login page.** Success and failure look identical in its response — `logonInfo` is a static `0,0,0` in the page template, not an error code. Authentication is therefore verified by fetching a protected page and checking for real content, which is the only reliable signal.
+
+**You must fetch the login page before posting to it.** The switch issues the `H_P_SSID` cookie when the login page is loaded, and `logon.cgi` authenticates *that* pre-existing session. Posting credentials cold, with no cookie, returns HTTP 200 and hands back a fresh cookie — but the session is never marked authenticated, so every page afterwards returns the login form. **The symptom is indistinguishable from a wrong password**, and it is model-dependent: a TL-SG105E accepted a cold POST while a TL-SG116E did not, so code that works against one switch can fail against another with perfectly valid credentials. The sequence is: `GET /` for a cookie, `POST /logon.cgi` carrying it, then `GET /` for the frameset as the page's own redirect does.
 
 **The web UI is fragile.** Requests arriving back to back get dropped with no reply, so reads are spaced and retried, and the integration authenticates once rather than per poll. Some models are known to hang their web UI after long uptime; putting management on VLAN 1 is the usual workaround.
 

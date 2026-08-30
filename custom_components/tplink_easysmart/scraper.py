@@ -117,26 +117,43 @@ class TPLinkEasySmartClient:
     # ------------------------------------------------------------------
 
     async def _post_login(self) -> None:
-        """Send credentials. Does not, and cannot, confirm they were accepted.
+        """Establish a session, then send credentials into it.
 
-        The session cookie jar is cleared first: without that, a still-valid
-        cookie from an earlier login would authenticate the next request no
-        matter what password was just sent.
+        The order matters and is not optional. These switches issue an
+        ``H_P_SSID`` cookie when the *login page* is fetched, and
+        ``logon.cgi`` authenticates that pre-existing session. Posting
+        credentials cold — with no cookie — gets a fresh cookie back and a
+        200 response, but the session is never marked authenticated, so every
+        subsequent page returns the login form. It looks exactly like a wrong
+        password, on a model where the same cold POST happens to work.
+
+        So: GET the login page for a cookie, POST with it, then fetch the
+        frameset the browser's own redirect would load.
         """
         if self._session.cookie_jar is not None:
             self._session.cookie_jar.clear()
         self._cookies.clear()
 
-        # Field order matters, or at least may: naive embedded CGI parsers scan
-        # the body sequentially. Captured from Chrome against a TL-SG116E, the
-        # browser sends exactly:
-        #     username=…&password=…&cpassword=&logon=Login
-        # `cpassword` belongs to the forced password-change flow and sits in a
-        # hidden row, but hidden inputs are still submitted, so a browser sends
-        # it empty on a normal login. `logon` is a real submit button and the
-        # page submits natively, so its value is sent too. Python dicts preserve
-        # insertion order and urlencode follows it, so this reproduces the
-        # browser's body byte for byte.
+        # 1. Fetch the login page to be issued a session cookie.
+        try:
+            async with self._session.get(
+                f"{self._base_url}/",
+                headers={"Referer": f"{self._base_url}/"},
+                timeout=_TIMEOUT,
+            ) as resp:
+                resp.raise_for_status()
+                await resp.read()
+                for key, morsel in resp.cookies.items():
+                    self._cookies[key] = morsel.value
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            raise CannotConnect(
+                f"Could not open the login page on {self.host}: {exc}"
+            ) from exc
+
+        await asyncio.sleep(_REQUEST_DELAY)
+
+        # 2. Authenticate that session. Field order captured from a real
+        #    browser submission: username, password, cpassword, logon.
         payload = {
             "username": self._username,
             "password": self._password,
@@ -155,6 +172,7 @@ class TPLinkEasySmartClient:
                 # request to the same endpoint returned HTTP 200. Do not "fix"
                 # this by making the request look more like a browser.
                 headers={"Referer": f"{self._base_url}/"},
+                cookies=self._cookies,
                 timeout=_TIMEOUT,
             ) as resp:
                 resp.raise_for_status()
@@ -165,6 +183,22 @@ class TPLinkEasySmartClient:
             raise CannotConnect(f"Login request to {self.host} failed: {exc}") from exc
         except asyncio.TimeoutError as exc:
             raise CannotConnect(f"Login request to {self.host} timed out") from exc
+
+        await asyncio.sleep(_REQUEST_DELAY)
+
+        # 3. Load the frameset, as the login page's own redirect does. Cheap,
+        #    happens once per session, and keeps the conversation identical to
+        #    the browser's.
+        try:
+            async with self._session.get(
+                f"{self._base_url}/",
+                headers={"Referer": f"{self._base_url}/"},
+                cookies=self._cookies,
+                timeout=_TIMEOUT,
+            ) as resp:
+                await resp.read()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            _LOGGER.debug("[%s] Post-login frameset fetch failed: %s", self.host, exc)
 
     async def _get(self, path: str) -> str:
         """GET a page, retrying the server's intermittent empty replies."""
