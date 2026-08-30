@@ -128,6 +128,18 @@ Two consequences for this integration. It authenticates once and reuses the sess
 
 ---
 
+## Known limitations
+
+**The integration does not log out, and there are only 16 session slots.** The firmware allows 16 concurrent logins and frees a slot on explicit logout or on idle timeout, never when a client simply goes away. The integration authenticates once and reuses that session, so steady-state operation holds one slot per switch — but repeated restarts or reconfigurations accumulate them. No logout endpoint has been identified yet; the obvious candidates (`Logout.htm`, `logout.cgi`, `logon.cgi?logout=1`) all return the login page indistinguishably. If you ever find the switch refusing logins from everything including a browser, this is the first thing to suspect, and a reboot clears it.
+
+**A wrong password cannot be detected while another session is open.** See the session-echo behaviour below. The config flow says so in its error message, but be aware that validating credentials with the switch's web UI open in a browser proves nothing.
+
+**Speed is read from the statistics page, not the settings page.** Both report a negotiated rate and they can disagree. The statistics page wins, because that is where the counters come from and keeping them consistent matters more; a disagreement is logged at debug level.
+
+**No write operations.** This is a read-only integration: no port enable/disable, no VLAN changes, no counter clearing, no reboot. That is deliberate given how easily this firmware is upset.
+
+---
+
 ## Development
 
 Page parsing lives in `parser.py` as plain functions, separate from the HTTP layer in `scraper.py`, and the rate and option logic is Home-Assistant-free too. So the test suite needs neither a switch nor Home Assistant:
